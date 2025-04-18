@@ -1,0 +1,74 @@
+import asyncio import json import logging import os from aiogram import Bot, Dispatcher, F from aiogram.filters import Command from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove from dotenv import load_dotenv
+
+Load environment variables
+
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN") ADMIN_ID = int(os.getenv("ADMIN_ID"))
+
+Logging
+
+logging.basicConfig(level=logging.INFO)
+
+Initialize bot and dispatcher
+
+bot = Bot(token=TOKEN) dp = Dispatcher()
+
+@dp.message(Command("start")) async def command_start_handler(message: Message) -> None: full_name = message.from_user.full_name
+
+# Button to request phone number
+contact_button = KeyboardButton(text="📱 Telefon raqamni yuborish", request_contact=True)
+keyboard = ReplyKeyboardMarkup(keyboard=[[contact_button]], resize_keyboard=True)
+
+await message.answer(
+    f"Salom {full_name}! Iltimos, quyidagi tugma orqali telefon raqamingizni yuboring:",
+    reply_markup=keyboard
+)
+
+@dp.message(F.contact) async def handle_contact(message: Message) -> None: contact = message.contact user_id = contact.user_id full_name = message.from_user.full_name phone_number = contact.phone_number username = message.from_user.username or "yo‘q"
+
+user_data = {
+    "full_name": full_name,
+    "username": username,
+    "user_id": user_id,
+    "phone_number": phone_number
+}
+
+# Write to JSON file
+try:
+    with open("data.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
+except (FileNotFoundError, json.decoder.JSONDecodeError):
+    data = []
+
+data.append(user_data)
+
+with open("data.json", "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=4)
+
+# Confirmation message
+await message.answer(
+    f"Raqamingiz qabul qilindi!\n"
+    f"Ism: {full_name}\n"
+    f"Username: @{username}\n"
+    f"ID: {user_id}\n"
+    f"Telefon: {phone_number}",
+    reply_markup=ReplyKeyboardRemove()
+)
+
+# Notify admin
+await bot.send_message(
+    ADMIN_ID,
+    f"Yangi foydalanuvchi:\n"
+    f"Ism: {full_name}\n"
+    f"Username: @{username}\n"
+    f"ID: {user_id}\n"
+    f"Telefon raqam: {phone_number}"
+)
+
+Run the bot
+
+async def main(): try: await dp.start_polling(bot) except Exception as e: logging.error(f"Xatolik yuz berdi: {e}")
+
+if name == "main": asyncio.run(main())
+
